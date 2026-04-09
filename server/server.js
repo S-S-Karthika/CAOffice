@@ -23,162 +23,111 @@ const pool = mysql.createPool({
 
 // ─── Init DB ──────────────────────────────────────────────────────────────────
 async function initDB() {
-  const rootPool = mysql.createPool({
-    host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-    waitForConnections: true, connectionLimit: 2,
-  });
-  const rootConn = await rootPool.getConnection();
-  await rootConn.query("CREATE DATABASE IF NOT EXISTS caoffice");
-  rootConn.release();
-  await rootPool.end();
-
   const conn = await pool.getConnection();
 
+  // create logins table
   await conn.query(`
     CREATE TABLE IF NOT EXISTS logins (
-      id         INT AUTO_INCREMENT PRIMARY KEY,
-      name       VARCHAR(100)  NOT NULL,
-      password   VARCHAR(255)  NOT NULL,
-      role       VARCHAR(50)   NOT NULL,
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(100),
+      password VARCHAR(255),
+      role VARCHAR(50),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
-  // works table — workNature TEXT allows comma-separated multiple values
-  await conn.query(`
-    CREATE TABLE IF NOT EXISTS works (
-      id                  INT AUTO_INCREMENT PRIMARY KEY,
-      clientName          VARCHAR(200),
-      pan                 VARCHAR(20),
-      contactNo           VARCHAR(20),
-      address             TEXT,
-      organization        VARCHAR(100),
-      workNature          TEXT,
-      month               VARCHAR(50),
-      assignedTo          VARCHAR(100),
-      referredBy          VARCHAR(100),
-      workStartDate       VARCHAR(20),
-      expectedCompletion  VARCHAR(20),
-      documentObtained    VARCHAR(20)    DEFAULT 'Yes',
-      pendingRemarks      TEXT,
-      checklist           VARCHAR(10)    DEFAULT 'Yes',
-      priority            VARCHAR(20)    DEFAULT 'Normal',
-      notes               TEXT,
-      fees                DECIMAL(12,2)  DEFAULT 0,
-      reimbAmt            DECIMAL(12,2)  DEFAULT 0,
-      status              VARCHAR(50)    DEFAULT 'Pending',
-      referenceNo         VARCHAR(100),
-      reviewedBy          VARCHAR(100),
-      completedBy         VARCHAR(100)   DEFAULT '',
-      completionRemarks   TEXT,
-      invoiceGenerated    VARCHAR(5)     DEFAULT 'No',
-      invoiceSent         VARCHAR(5)     DEFAULT 'No',
-      feesReceived        TINYINT(1)     DEFAULT 0,
-      feesReceivedAmt     DECIMAL(12,2)  DEFAULT 0,
-      feesReceivedMode    VARCHAR(50),
-      feesReceivedDate    VARCHAR(20),
-      feesReceivedRef     VARCHAR(100),
-      created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  // Safe upgrade — add any missing columns to existing DB
-  const upgradeCols = [
-    "ALTER TABLE works ADD COLUMN IF NOT EXISTS organization       VARCHAR(100)",
-    "ALTER TABLE works ADD COLUMN IF NOT EXISTS reimbAmt           DECIMAL(12,2) DEFAULT 0",
-    "ALTER TABLE works ADD COLUMN IF NOT EXISTS referenceNo        VARCHAR(100)",
-    "ALTER TABLE works ADD COLUMN IF NOT EXISTS reviewedBy         VARCHAR(100)",
-    "ALTER TABLE works ADD COLUMN IF NOT EXISTS completedBy        VARCHAR(100) DEFAULT ''",
-    "ALTER TABLE works ADD COLUMN IF NOT EXISTS completionRemarks  TEXT",
-    "ALTER TABLE works ADD COLUMN IF NOT EXISTS invoiceGenerated   VARCHAR(5) DEFAULT 'No'",
-    "ALTER TABLE works ADD COLUMN IF NOT EXISTS invoiceSent        VARCHAR(5) DEFAULT 'No'",
-    "ALTER TABLE works ADD COLUMN IF NOT EXISTS feesReceived       TINYINT(1) DEFAULT 0",
-    "ALTER TABLE works ADD COLUMN IF NOT EXISTS feesReceivedAmt    DECIMAL(12,2) DEFAULT 0",
-    "ALTER TABLE works ADD COLUMN IF NOT EXISTS feesReceivedMode   VARCHAR(50)",
-    "ALTER TABLE works ADD COLUMN IF NOT EXISTS feesReceivedDate   VARCHAR(20)",
-    "ALTER TABLE works ADD COLUMN IF NOT EXISTS feesReceivedRef    VARCHAR(100)",
-    // workNature needs to be TEXT to hold comma-separated values
-    "ALTER TABLE works MODIFY COLUMN workNature TEXT",
-  ];
-  for (const sql of upgradeCols) {
-    try { await conn.query(sql); } catch (_) {}
-  }
-
+  // create attendance table (if you use it)
   await conn.query(`
     CREATE TABLE IF NOT EXISTS attendance (
-      id         INT AUTO_INCREMENT PRIMARY KEY,
-      name       VARCHAR(100) NOT NULL,
-      role       VARCHAR(50),
-      date       VARCHAR(20)  NOT NULL,
-      checkIn    VARCHAR(30),
-      checkOut   VARCHAR(30),
-      session    INT          DEFAULT 1,
-      totalMins  INT          DEFAULT 0,
-      leaveType  VARCHAR(50),
-      reason     TEXT,
-      status     VARCHAR(30)  DEFAULT 'Present',
-      month      VARCHAR(50),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(100),
+      status VARCHAR(20),
+      date DATE
     )
   `);
+  // works table
+await conn.query(`
+  CREATE TABLE IF NOT EXISTS works (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    clientName VARCHAR(255),
+    pan VARCHAR(50),
+    contactNo VARCHAR(50),
+    address TEXT,
+    organization VARCHAR(255),
+    workNature TEXT,
+    month VARCHAR(50),
+    assignedTo VARCHAR(100),
+    referredBy VARCHAR(100),
+    workStartDate VARCHAR(50),
+    expectedCompletion VARCHAR(50),
+    documentObtained VARCHAR(10),
+    pendingRemarks TEXT,
+    checklist VARCHAR(10),
+    priority VARCHAR(20),
+    notes TEXT,
+    fees DOUBLE,
+    reimbAmt DOUBLE,
+    status VARCHAR(50),
+    referenceNo VARCHAR(100),
+    reviewedBy VARCHAR(100),
+    completedBy VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`);
 
-  await conn.query(`
-    CREATE TABLE IF NOT EXISTS reimbursements (
-      id               INT AUTO_INCREMENT PRIMARY KEY,
-      clientName       VARCHAR(200),
-      taxType          VARCHAR(100),
-      remarkPeriod     VARCHAR(100),
-      remarkDetail     TEXT,
-      fullRemark       TEXT,
-      amount           DECIMAL(12,2) DEFAULT 0,
-      date             VARCHAR(20),
-      paidBy           VARCHAR(100),
-      paymentSource    VARCHAR(20)   DEFAULT 'office',
-      staffPaidFrom    VARCHAR(30),
-      officeOwesStaff  TINYINT(1)    DEFAULT 0,
-      officePaidStaffOn VARCHAR(20),
-      status           VARCHAR(30)   DEFAULT 'Pending',
-      addedBy          VARCHAR(100),
-      addedOn          VARCHAR(20),
-      invoiceId        VARCHAR(100),
-      created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+// reimbursements
+await conn.query(`
+  CREATE TABLE IF NOT EXISTS reimbursements (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    clientName VARCHAR(255),
+    taxType VARCHAR(100),
+    remarkPeriod VARCHAR(100),
+    remarkDetail TEXT,
+    fullRemark TEXT,
+    amount DOUBLE,
+    date VARCHAR(50),
+    paidBy VARCHAR(100),
+    paymentSource VARCHAR(50),
+    staffPaidFrom VARCHAR(100),
+    officeOwesStaff BOOLEAN,
+    status VARCHAR(50),
+    addedBy VARCHAR(100),
+    addedOn VARCHAR(50),
+    invoiceId VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`);
 
-  await conn.query(`
-    CREATE TABLE IF NOT EXISTS settings (
-      id         INT AUTO_INCREMENT PRIMARY KEY,
-      key_name   VARCHAR(100) NOT NULL UNIQUE,
-      value      TEXT,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    )
-  `);
+// settings
+await conn.query(`
+  CREATE TABLE IF NOT EXISTS settings (
+    key_name VARCHAR(100) PRIMARY KEY,
+    value TEXT
+  )
+`);
 
-  // invoices table
-  await conn.query(`
-    CREATE TABLE IF NOT EXISTS invoices (
-      id            INT AUTO_INCREMENT PRIMARY KEY,
-      invoiceNo     VARCHAR(50) NOT NULL UNIQUE,
-      clientName    VARCHAR(200),
-      clientPan     VARCHAR(20),
-      clientContact VARCHAR(30),
-      clientAddress TEXT,
-      invoiceDate   VARCHAR(20),
-      dueDate       VARCHAR(20),
-      items         JSON,
-      subtotal      DECIMAL(12,2) DEFAULT 0,
-      gstTotal      DECIMAL(12,2) DEFAULT 0,
-      grandTotal    DECIMAL(12,2) DEFAULT 0,
-      status        VARCHAR(20)   DEFAULT 'Pending',
-      paidOn        VARCHAR(20),
-      created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+// invoices
+await conn.query(`
+  CREATE TABLE IF NOT EXISTS invoices (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    invoiceNo VARCHAR(100),
+    clientName VARCHAR(255),
+    clientPan VARCHAR(50),
+    clientContact VARCHAR(50),
+    clientAddress TEXT,
+    invoiceDate VARCHAR(50),
+    dueDate VARCHAR(50),
+    items JSON,
+    subtotal DOUBLE,
+    gstTotal DOUBLE,
+    grandTotal DOUBLE,
+    status VARCHAR(50),
+    paidOn VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`);
 
   conn.release();
-  console.log("✅ Database & tables initialized");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -561,7 +510,7 @@ app.delete("/invoices/:id", async (req, res) => {
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 initDB().then(() => {
   app.listen(PORT, () => console.log(`🚀 CA Office backend running on http://localhost:${PORT}`));
 }).catch(err => { console.error("DB init failed:", err); process.exit(1); });
