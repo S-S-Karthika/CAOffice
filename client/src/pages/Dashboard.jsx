@@ -1,0 +1,656 @@
+import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
+// ─── Inline SVG Icon ──────────────────────────────────────────────────────────
+const Icon = ({ d, size = 20, stroke = "currentColor", fill = "none", strokeWidth = 1.8 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={stroke}
+    strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <path d={d} />
+  </svg>
+);
+
+const ICONS = {
+  dash:     "M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z M9 22V12h6v10",
+  works:    "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2 M9 5a2 2 0 002 2h2a2 2 0 002-2 M9 5a2 2 0 012-2h2a2 2 0 012 2",
+  clients:  "M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2 M9 7a4 4 0 100 8 4 4 0 000-8z M23 21v-2a4 4 0 00-3-3.87 M16 3.13a4 4 0 010 7.75",
+  finance:  "M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6",
+  add:      "M12 5v14M5 12h14",
+  attend:   "M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2 M9 7a4 4 0 100 8 4 4 0 000-8z M23 21v-2a4 4 0 00-3-3.87",
+  cal:      "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
+  reimb:    "M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z",
+  settings: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
+  invoice: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+  phone:    "M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z",
+};
+
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const DAY_LABELS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+const STATUS_CONFIG = {
+  "Pending":     { color: "#f59e0b", bg: "#fef3c7", text: "#d97706" },
+  "In Progress": { color: "#3b82f6", bg: "#dbeafe", text: "#2563eb" },
+  "Completed":   { color: "#10b981", bg: "#d1fae5", text: "#059669" },
+  "On Hold":     { color: "#8b5cf6", bg: "#ede9fe", text: "#7c3aed" },
+  "Review":      { color: "#8b5cf6", bg: "#ede9fe", text: "#7c3aed" },
+};
+
+const AV_COLORS = ["#ef4444","#3b82f6","#10b981","#f59e0b","#8b5cf6","#06b6d4","#ec4899","#14b8a6"];
+
+function Avatar({ name, size = 30 }) {
+  const bg = AV_COLORS[(String(name || "?").charCodeAt(0) || 0) % AV_COLORS.length];
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: "50%", background: bg,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      color: "#fff", fontSize: size * 0.43, fontWeight: 700, flexShrink: 0,
+    }}>
+      {String(name || "?")[0].toUpperCase()}
+    </div>
+  );
+}
+
+function toDate(str) {
+  if (!str) return null;
+  // Handle YYYY-MM-DD (from MySQL) and DD-MM-YYYY
+  if (str.includes("T")) str = str.split("T")[0]; // ISO datetime
+  const parts = str.split("-");
+  let dt;
+  if (parts[0].length === 4) {
+    dt = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+  } else {
+    dt = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+  }
+  dt.setHours(0, 0, 0, 0);
+  return dt;
+}
+
+function todayDate() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function NavItem({ label, iconPath, active, onClick, dot }) {
+  return (
+    <button onClick={onClick} style={{
+      display: "flex", flexDirection: "column", alignItems: "center",
+      gap: 3, padding: "9px 0", border: "none", background: "none",
+      cursor: "pointer", width: "100%", position: "relative",
+      color: active ? "#3b82f6" : "#94a3b8", fontFamily: "'Segoe UI', sans-serif",
+    }}>
+      {dot && <span style={{ position: "absolute", top: 8, right: 10, width: 7, height: 7, borderRadius: "50%", background: "#3b82f6" }} />}
+      <Icon d={iconPath} size={21} stroke={active ? "#3b82f6" : "#94a3b8"} />
+      <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.2 }}>{label}</span>
+      {active && <div style={{ position: "absolute", left: 0, top: "15%", height: "70%", width: 3, borderRadius: "0 3px 3px 0", background: "#3b82f6" }} />}
+    </button>
+  );
+}
+
+// ─── Donut Chart ──────────────────────────────────────────────────────────────
+function DonutChart({ works }) {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const counts = { Pending: 0, "In Progress": 0, Completed: 0, Other: 0 };
+    works.forEach((w) => {
+      if (counts[w.status] !== undefined) counts[w.status]++;
+      else counts.Other++;
+    });
+    const total = works.length || 1;
+    const slices = [
+      { val: counts.Pending, color: "#f59e0b" },
+      { val: counts["In Progress"], color: "#3b82f6" },
+      { val: counts.Completed, color: "#10b981" },
+      { val: counts.Other, color: "#8b5cf6" },
+    ];
+    ctx.clearRect(0, 0, 80, 80);
+    let start = -Math.PI / 2;
+    slices.forEach(({ val, color }) => {
+      if (!val) return;
+      const arc = (val / total) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.arc(40, 40, 28, start, start + arc);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 12;
+      ctx.stroke();
+      start += arc;
+    });
+    ctx.font = "bold 13px Segoe UI";
+    ctx.fillStyle = "#1e293b";
+    ctx.textAlign = "center";
+    ctx.fillText(total, 40, 44);
+    ctx.font = "7px Segoe UI";
+    ctx.fillStyle = "#64748b";
+    ctx.fillText("Works", 40, 54);
+  }, [works]);
+  return <canvas ref={canvasRef} width={80} height={80} />;
+}
+
+// ─── Work Calendar ────────────────────────────────────────────────────────────
+function WorkCalendar({ works }) {
+  const today = todayDate();
+  const [calYear, setCalYear] = useState(today.getFullYear());
+  const [calMonth, setCalMonth] = useState(today.getMonth());
+  const [popup, setPopup] = useState(null);
+
+  function changeMonth(delta) {
+    let m = calMonth + delta;
+    let y = calYear;
+    if (m < 0) { m = 11; y--; }
+    if (m > 11) { m = 0; y++; }
+    setCalMonth(m); setCalYear(y);
+  }
+
+  const byDay = {};
+  works.forEach((w) => {
+    const d = toDate(w.expectedCompletion);
+    if (!d) return;
+    if (d.getFullYear() === calYear && d.getMonth() === calMonth) {
+      const day = d.getDate();
+      if (!byDay[day]) byDay[day] = [];
+      byDay[day].push(w);
+    }
+  });
+
+  const firstDow = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const prevMonthDays = new Date(calYear, calMonth, 0).getDate();
+  const cells = [];
+
+  for (let i = 0; i < firstDow; i++) cells.push({ day: prevMonthDays - firstDow + 1 + i, current: false, works: [] });
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(calYear, calMonth, d); dt.setHours(0, 0, 0, 0);
+    cells.push({ day: d, current: true, isToday: dt.getTime() === today.getTime(), works: byDay[d] || [] });
+  }
+  const remaining = 7 - (cells.length % 7);
+  if (remaining < 7) for (let i = 1; i <= remaining; i++) cells.push({ day: i, current: false, works: [] });
+
+  return (
+    <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 16px", borderBottom: "1px solid #f1f5f9" }}>
+        <span style={{ fontWeight: 700, fontSize: 15, color: "#1e293b" }}>Work Calendar — {MONTHS[calMonth]} {calYear}</span>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={() => changeMonth(-1)} style={arrowBtnStyle}>‹</button>
+          <button onClick={() => changeMonth(1)} style={arrowBtnStyle}>›</button>
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", padding: "8px 14px 0" }}>
+        {DAY_LABELS.map((d) => <div key={d} style={{ textAlign: "center", fontSize: 10, fontWeight: 700, color: "#94a3b8", paddingBottom: 4 }}>{d}</div>)}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, padding: "0 14px 14px" }}>
+        {cells.map((cell, idx) => (
+          <div key={idx} onClick={() => cell.current && cell.works.length > 0 && setPopup({ day: cell.day, works: cell.works })}
+            style={{ minHeight: 40, borderRadius: 6, display: "flex", flexDirection: "column", alignItems: "center", padding: "3px 2px",
+              cursor: cell.current && cell.works.length > 0 ? "pointer" : "default",
+              background: cell.isToday ? "#eff6ff" : "transparent" }}>
+            <div style={{ width: 24, height: 24, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+              background: cell.isToday ? "#3b82f6" : "transparent",
+              color: !cell.current ? "#cbd5e1" : cell.isToday ? "#fff" : "#334155", fontSize: 12, fontWeight: 600 }}>
+              {cell.day}
+            </div>
+            {cell.current && cell.works.length > 0 && (
+              <div style={{ display: "flex", gap: 2, flexWrap: "wrap", justifyContent: "center", marginTop: 2 }}>
+                {cell.works.slice(0, 3).map((w, i) => (
+                  <div key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: STATUS_CONFIG[w.status]?.color || "#94a3b8" }} />
+                ))}
+                {cell.works.length > 3 && <div style={{ fontSize: 8, color: "#94a3b8", lineHeight: "5px" }}>+{cell.works.length - 3}</div>}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 14, padding: "8px 16px 14px", borderTop: "1px solid #f1f5f9", flexWrap: "wrap" }}>
+        {Object.entries(STATUS_CONFIG).slice(0, 4).map(([label, cfg]) => (
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: cfg.color }} />
+            <span style={{ fontSize: 11, color: "#64748b" }}>{label}</span>
+          </div>
+        ))}
+      </div>
+      {popup && (
+        <div onClick={(e) => { if (e.target === e.currentTarget) setPopup(null); }}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#fff", borderRadius: 14, padding: 20, width: 320, maxHeight: "70vh", overflowY: "auto", boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <span style={{ fontWeight: 700, fontSize: 15, color: "#1e293b" }}>Works on {MONTHS[calMonth].slice(0, 3)} {popup.day}, {calYear}</span>
+              <button onClick={() => setPopup(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: 20, lineHeight: 1 }}>×</button>
+            </div>
+            {popup.works.map((w) => {
+              const cfg = STATUS_CONFIG[w.status] || STATUS_CONFIG.Pending;
+              return (
+                <div key={w.id} style={{ padding: "11px 13px", border: "1px solid #f1f5f9", borderRadius: 9, marginBottom: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{w.clientName}</div>
+                    <Avatar name={w.assignedTo} size={26} />
+                  </div>
+                  <div style={{ fontSize: 11, color: "#64748b", margin: "3px 0 6px" }}>{w.workNature}</div>
+                  <span style={{ display: "inline-block", fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 10, background: cfg.bg, color: cfg.text }}>{w.status}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Due Summary Cards ────────────────────────────────────────────────────────
+function DueSummaryCards({ works }) {
+  const today = todayDate();
+  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+  const in7 = new Date(today); in7.setDate(in7.getDate() + 7);
+  const ago7 = new Date(today); ago7.setDate(ago7.getDate() - 7);
+
+  let cToday = 0, cTomorrow = 0, c7Days = 0, cOver7 = 0, cOverdue = 0;
+  works.forEach((w) => {
+    if (w.status === "Completed") return;
+    const d = toDate(w.expectedCompletion);
+    if (!d) return;
+    const t = d.getTime();
+    if (t === today.getTime()) cToday++;
+    else if (t === tomorrow.getTime()) cTomorrow++;
+    else if (d > today && d <= in7) c7Days++;
+    else if (d < today && d >= ago7) cOver7++;
+    else if (d < ago7) cOverdue++;
+  });
+
+  const cards = [
+    { label: "Due Today", count: cToday, color: "#f59e0b" },
+    { label: "Due Tomorrow", count: cTomorrow, color: "#3b82f6" },
+    { label: "In 7 Days", count: c7Days, color: "#10b981" },
+    { label: "Overdue ≤7d", count: cOver7, color: "#ef4444" },
+    { label: "Overdue >7d", count: cOverdue, color: "#7c3aed" },
+  ];
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10 }}>
+      {cards.map((c) => (
+        <div key={c.label} style={{ background: "#fff", borderRadius: 10, padding: "13px 14px", borderTop: `3px solid ${c.color}`, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+          <div style={{ fontSize: 24, fontWeight: 800, color: c.color }}>{c.count}</div>
+          <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 1 }}>Due</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#475569", marginTop: 1 }}>{c.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Todo Section — works with expectedCompletion = today ─────────────────────
+function TodoSection({ works }) {
+  const [activeTab, setActiveTab] = useState("Today");
+  const today = todayDate();
+
+  const filtered = {
+    Today: works.filter((w) => {
+      const d = toDate(w.expectedCompletion);
+      return d && d.getTime() === today.getTime() && w.status !== "Completed";
+    }),
+    Upcoming: works.filter((w) => {
+      const d = toDate(w.expectedCompletion);
+      return d && d > today && w.status !== "Completed";
+    }),
+    Completed: works.filter((w) => w.status === "Completed"),
+  };
+  const list = filtered[activeTab] || [];
+
+  return (
+    <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid #f1f5f9" }}>
+        <span style={{ fontWeight: 700, fontSize: 15, color: "#1e293b" }}>To-Do</span>
+      </div>
+      <div style={{ display: "flex", borderBottom: "1px solid #f1f5f9" }}>
+        {["Today", "Upcoming", "Completed"].map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)} style={{
+            padding: "9px 16px", fontSize: 13, border: "none", background: "none",
+            cursor: "pointer", fontWeight: 600, fontFamily: "'Segoe UI', sans-serif",
+            color: activeTab === tab ? "#1e293b" : "#94a3b8",
+            borderBottom: activeTab === tab ? "2px solid #1e293b" : "2px solid transparent", marginBottom: -1,
+          }}>{tab}</button>
+        ))}
+      </div>
+      {list.length === 0 ? (
+        <div style={{ padding: "18px 16px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>
+          No tasks for {activeTab.toLowerCase()}
+        </div>
+      ) : list.map((w) => (
+        <div key={w.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 16px", borderBottom: "1px solid #f8fafc" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: STATUS_CONFIG[w.status]?.color || "#3b82f6", flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{w.clientName}</div>
+              <div style={{ fontSize: 11, color: "#64748b" }}>{w.workNature}</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 12, color: "#94a3b8" }}>
+              {w.expectedCompletion ? toDate(w.expectedCompletion)?.toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : ""}
+            </span>
+            <Avatar name={w.assignedTo || "?"} size={27} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Tasks Panel ──────────────────────────────────────────────────────────────
+function TasksPanel({ works }) {
+  const [filter, setFilter] = useState("All");
+  const filters = ["All", "Pending", "Hold", "In Progress", "Done"];
+  const statusMap = { All: null, Pending: "Pending", Hold: "On Hold", "In Progress": "In Progress", Done: "Completed" };
+  const filtered = filter === "All" ? works : works.filter((w) => w.status === statusMap[filter]);
+
+  const byType = {};
+  filtered.forEach((w) => {
+    if (!byType[w.workNature]) byType[w.workNature] = { total: 0, done: 0 };
+    byType[w.workNature].total++;
+    if (w.status === "Completed") byType[w.workNature].done++;
+  });
+
+  return (
+    <div style={{ background: "#fff", borderRadius: 12, padding: "14px 16px", boxShadow: "0 1px 4px rgba(0,0,0,0.07)", marginBottom: 14 }}>
+      <div style={{ fontWeight: 700, fontSize: 15, color: "#1e293b", marginBottom: 10 }}>Tasks</div>
+      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 12 }}>
+        {filters.map((f) => (
+          <button key={f} onClick={() => setFilter(f)} style={{
+            fontSize: 11, padding: "4px 11px", borderRadius: 20, cursor: "pointer",
+            fontFamily: "'Segoe UI', sans-serif", fontWeight: 600,
+            border: filter === f ? "1px solid #3b82f6" : "1px solid #e2e8f0",
+            background: filter === f ? "#3b82f6" : "transparent",
+            color: filter === f ? "#fff" : "#64748b",
+          }}>{f}</button>
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 50px 70px", fontSize: 11, color: "#94a3b8", fontWeight: 600, padding: "0 2px 6px", borderBottom: "1px solid #f1f5f9" }}>
+        <span>Work Type</span><span style={{ textAlign: "center" }}>Count</span><span>Progress</span>
+      </div>
+      {Object.keys(byType).length === 0 ? (
+        <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 12, padding: "14px 0" }}>No works found.</div>
+      ) : Object.entries(byType).map(([type, data]) => {
+        const pct = Math.round((data.done / data.total) * 100);
+        return (
+          <div key={type} style={{ display: "grid", gridTemplateColumns: "1fr 50px 70px", alignItems: "center", padding: "7px 2px", borderBottom: "1px solid #f8fafc", fontSize: 12 }}>
+            <span style={{ color: "#1e293b", fontWeight: 600 }}>{type}</span>
+            <span style={{ textAlign: "center", color: "#64748b" }}>{data.total}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <div style={{ flex: 1, background: "#f1f5f9", borderRadius: 4, height: 5, overflow: "hidden" }}>
+                <div style={{ width: `${pct}%`, background: "#3b82f6", height: "100%" }} />
+              </div>
+              <span style={{ fontSize: 10, color: "#94a3b8", minWidth: 24 }}>{pct}%</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Task Summary ─────────────────────────────────────────────────────────────
+function TaskSummary({ works }) {
+  const counts = { Pending: 0, "In Progress": 0, Completed: 0, "On Hold": 0, Review: 0 };
+  works.forEach((w) => { if (counts[w.status] !== undefined) counts[w.status]++; });
+  const incomplete = works.filter((w) => w.status !== "Completed").length;
+
+  const legendItems = [
+    { label: "Pending", color: "#f59e0b", count: counts.Pending },
+    { label: "In Progress", color: "#3b82f6", count: counts["In Progress"] },
+    { label: "Completed", color: "#10b981", count: counts.Completed },
+    { label: "Review", color: "#8b5cf6", count: counts.Review },
+  ];
+  const statBoxes = [
+    { label: "Pending", val: counts.Pending, accent: "#f59e0b" },
+    { label: "On Hold", val: counts["On Hold"], accent: "#8b5cf6" },
+    { label: "In Progress", val: counts["In Progress"], accent: "#3b82f6" },
+    { label: "Completed", val: counts.Completed, accent: "#10b981" },
+  ];
+
+  return (
+    <div style={{ background: "#fff", borderRadius: 12, padding: 18, boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
+      <h3 style={{ margin: "0 0 14px", fontWeight: 700, fontSize: 15, color: "#1e293b" }}>Task Summary</h3>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+        <DonutChart works={works} />
+        <div style={{ flex: 1 }}>
+          {legendItems.map((item) => (
+            <div key={item.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 9, height: 9, borderRadius: 2, background: item.color, display: "inline-block" }} />
+                <span style={{ fontSize: 12, color: "#475569" }}>{item.label}</span>
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#1e293b" }}>{item.count}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+        {statBoxes.map((b) => (
+          <div key={b.label} style={{ borderTop: `3px solid ${b.accent}`, border: `1.5px solid ${b.accent}22`, borderRadius: 8, padding: "11px 13px", background: "#fafafa" }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#1e293b" }}>{b.val}</div>
+            <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{b.label}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background: "#eff6ff", borderRadius: 8, padding: "9px 14px", textAlign: "center", fontSize: 13, color: "#3b82f6", fontWeight: 600 }}>
+        Need to complete: {incomplete} task{incomplete !== 1 ? "s" : ""}
+      </div>
+    </div>
+  );
+}
+
+// ─── Pending Verification ─────────────────────────────────────────────────────
+function PendingVerification({ works }) {
+  const pending = works.filter((w) => w.status === "Review");
+  return (
+    <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
+      <div style={{ padding: "13px 16px", borderBottom: "1px solid #f1f5f9" }}>
+        <span style={{ fontWeight: 700, fontSize: 15, color: "#3b82f6" }}>Pending Verification</span>
+      </div>
+      {pending.length === 0 ? (
+        <div style={{ padding: "20px 16px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No works pending review</div>
+      ) : pending.map((w) => (
+        <div key={w.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 16px", borderBottom: "1px solid #f8fafc" }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 13, color: "#1e293b" }}>{w.clientName}</div>
+            <div style={{ fontSize: 11, color: "#64748b" }}>{w.workNature}</div>
+          </div>
+          <Avatar name={w.assignedTo || "?"} size={27} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Attendance Section — from DB ─────────────────────────────────────────────
+function AttendanceSection({ attendance }) {
+  const today = todayDate();
+  const monthLabel = `${MONTHS[today.getMonth()]} ${today.getFullYear()}`;
+
+  // Get unique staff names from attendance records this month
+  const staffMap = {};
+  attendance.forEach((row) => {
+    if (row.month !== monthLabel) return;
+    if (!staffMap[row.name]) staffMap[row.name] = { present: 0, absent: 0 };
+    if (row.status === "Present") staffMap[row.name].present++;
+    else if (row.status === "Absent" || row.status === "Leave") staffMap[row.name].absent++;
+  });
+
+  const staffList = Object.entries(staffMap);
+
+  return (
+    <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(0,0,0,0.07)", overflow: "hidden" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 16px" }}>
+        <span style={{ fontWeight: 700, fontSize: 15, color: "#1e293b" }}>Attendance</span>
+        <span style={{ fontSize: 12, color: "#64748b" }}>{monthLabel}</span>
+      </div>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr style={{ background: "#f8fafc" }}>
+            {["User", "Present", "Absent", "%"].map((h) => (
+              <th key={h} style={{ padding: "7px 16px", textAlign: "left", fontSize: 11, fontWeight: 600, borderBottom: "1px solid #f1f5f9", color: h === "Absent" ? "#ef4444" : "#64748b" }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {staffList.length === 0 ? (
+            <tr><td colSpan={4} style={{ padding: "16px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No attendance data for this month</td></tr>
+          ) : staffList.map(([name, data]) => {
+            const total = data.present + data.absent;
+            const pct = total > 0 ? Math.round((data.present / total) * 100) : 0;
+            return (
+              <tr key={name} style={{ borderBottom: "1px solid #f8fafc" }}>
+                <td style={{ padding: "11px 16px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <Avatar name={name} size={28} />
+                    <span style={{ fontWeight: 600, fontSize: 13, color: "#1e293b" }}>{name}</span>
+                  </div>
+                </td>
+                <td style={{ padding: "11px 16px", color: "#1e293b", fontSize: 13 }}>{data.present}</td>
+                <td style={{ padding: "11px 16px", color: "#ef4444", fontSize: 13, fontWeight: 700 }}>{data.absent}</td>
+                <td style={{ padding: "11px 16px", color: pct > 0 ? "#10b981" : "#ef4444", fontSize: 13, fontWeight: 700 }}>{pct}%</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+const arrowBtnStyle = {
+  background: "none", border: "1px solid #e2e8f0", borderRadius: 6,
+  width: 28, height: 28, cursor: "pointer", color: "#64748b",
+  fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center",
+};
+
+// ─── MAIN DASHBOARD ───────────────────────────────────────────────────────────
+export default function Dashboard() {
+  const navigate = useNavigate();
+  const [activeNav, setActiveNav] = useState("dash");
+  const [works, setWorks] = useState([]);
+  const [attendance, setAttendance] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const user    = JSON.parse(localStorage.getItem("cao_user") || '{"name":"Guest","role":"Staff"}');
+  const isCA    = user.role === "CA";
+
+  // Staff sees only works assigned to them; CA sees everything
+  function filterByRole(allWorks) {
+    if (isCA) return allWorks;
+    return allWorks.filter(w => w.assignedTo === user.name);
+  }
+
+  useEffect(() => {
+    Promise.all([
+      axios.get(`${API}/works`),
+      axios.get(`${API}/attendance/all`),
+    ]).then(([worksRes, attRes]) => {
+      setWorks(filterByRole(worksRes.data || []));
+      setAttendance(attRes.data || []);
+    }).catch(console.error).finally(() => setLoading(false));
+  }, []);
+
+  const navItems = [
+    { key: "dash", label: "Dash", icon: ICONS.dash },
+    { key: "works", label: "Works", icon: ICONS.works, dot: works.some(w => w.status !== "Completed") },
+    { key: "clients", label: "Clients", icon: ICONS.clients },
+    { key: "finance", label: "Finance", icon: ICONS.finance },
+    { key: "add", label: "Add", icon: ICONS.add },
+    { key: "attend", label: "Attend", icon: ICONS.attend },
+    { key: "cal", label: "Cal", icon: ICONS.cal },
+    { key: "reimb",    label: "Reimb",   icon: ICONS.reimb },
+    { key: "invoice",  label: "Invoice", icon: ICONS.invoice },
+    { key: "settings", label: "Settings", icon: ICONS.settings },
+  ];
+
+  // Every sidebar button navigates — no dead ends
+  const NAV_ROUTES = {
+    dash:     "/dashboard",
+    works:    "/works",
+    clients:  "/clients",
+    finance:  "/finance",
+    add:      "/add-client",
+    attend:   "/attendance",
+    cal:      "/cal",
+    reimb:    "/reimbursement",
+    invoice:  "/invoice",
+    settings: "/settings",
+  };
+
+  function handleNav(key) {
+    const route = NAV_ROUTES[key];
+    if (route) navigate(route);
+  }
+
+  return (
+    <div style={{ display: "flex", height: "100vh", fontFamily: "'Segoe UI', sans-serif", background: "#f1f5f9", overflow: "hidden" }}>
+      <aside style={{ width: 72, background: "#0f172a", display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 0", gap: 2, flexShrink: 0, overflowY: "auto" }}>
+        {navItems.map((n) => (
+          <NavItem key={n.key} label={n.label} iconPath={n.icon} active={activeNav === n.key && n.key !== "add"} dot={n.dot} onClick={() => handleNav(n.key)} />
+        ))}
+      </aside>
+
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <header style={{ height: 54, background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div><span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>CA </span><span style={{ color: "#3b82f6", fontWeight: 700, fontSize: 16 }}>Office</span></div>
+            <div style={{ background: "#1e3a5f", color: "#60a5fa", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6 }}>{user.role}</div>
+            <div style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>{user.name.toUpperCase()}</div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "1px solid #334155", borderRadius: 8, color: "#94a3b8", padding: "5px 14px", cursor: "pointer", fontSize: 13, fontFamily: "'Segoe UI', sans-serif" }}
+              onClick={() => { setLoading(true); Promise.all([axios.get(`${API}/works`), axios.get(`${API}/attendance/all`)]).then(([w, a]) => { setWorks(filterByRole(w.data || [])); setAttendance(a.data || []); }).finally(() => setLoading(false)); }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981", display: "inline-block" }} /> Sync
+            </button>
+            <button onClick={() => { localStorage.removeItem("cao_user"); navigate("/"); }}
+              style={{ background: "#1e293b", border: "none", borderRadius: 8, color: "#94a3b8", padding: "6px 12px", cursor: "pointer", fontSize: 12, fontFamily: "'Segoe UI', sans-serif", fontWeight: 600 }}>
+              Logout
+            </button>
+          </div>
+        </header>
+
+        <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+          <div style={{ flex: 1, overflowY: "auto", padding: 18, display: "flex", flexDirection: "column", gap: 16 }}>
+            {loading ? (
+              <div style={{ textAlign: "center", color: "#94a3b8", padding: "60px 0", fontSize: 14 }}>Loading dashboard…</div>
+            ) : (
+              <>
+                {/* Staff view banner */}
+                {!isCA && (
+                  <div style={{ display:"flex", alignItems:"center", gap:10, background:"#eff6ff", border:"1px solid #bfdbfe", borderRadius:10, padding:"10px 14px", marginBottom:4 }}>
+                    <div style={{ width:32, height:32, borderRadius:"50%", background:"#2563eb", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </div>
+                    <div>
+                      <div style={{ fontSize:13, fontWeight:700, color:"#1e40af" }}>Staff View — {user.name}</div>
+                      <div style={{ fontSize:11, color:"#3b82f6", marginTop:1 }}>Showing only works assigned to you</div>
+                    </div>
+                    <div style={{ marginLeft:"auto", fontSize:12, fontWeight:700, color:"#2563eb", background:"#dbeafe", padding:"4px 10px", borderRadius:20 }}>
+                      {works.filter(w=>w.status!=="Completed").length} active
+                    </div>
+                  </div>
+                )}
+                <DueSummaryCards works={works} />
+                <TodoSection works={works} />
+                <WorkCalendar works={works} />
+                <AttendanceSection attendance={attendance} />
+                <PendingVerification works={works} />
+              </>
+            )}
+          </div>
+
+          <div style={{ width: 330, overflowY: "auto", padding: 18, flexShrink: 0, display: "flex", flexDirection: "column", gap: 0 }}>
+            {!loading && (
+              <>
+                <TasksPanel works={works} />
+                <TaskSummary works={works} />
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

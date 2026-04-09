@@ -1,0 +1,40 @@
+
+
+POST http://localhost:5000/api/register
+Content-Type: application/json
+
+{
+  "name": "SK KavinRaj",
+  "password": "admin123",
+  "role": "CA"
+}
+
+### Register Ravi
+POST http://localhost:5000/api/register
+Content-Type: application/json
+
+{
+  "name": "Shanker",
+  "password": "staff123",
+  "role": "Staff"
+}
+
+### Register Priya
+POST http://localhost:5000/api/register
+Content-Type: application/json
+
+{
+  "name": "Priya",
+  "password": "staff123",
+  "role": "Staff"
+}
+
+### Register Karthik
+POST http://localhost:5000/api/register
+Content-Type: application/json
+
+{
+  "name": "Karthik",
+  "password": "staff123",
+  "role": "Staff"
+}
