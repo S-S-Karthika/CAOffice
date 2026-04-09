@@ -7,7 +7,7 @@ node_modules/
 # Environment files (SECRETS)
 # ----------------------------
 .env
-.env.*
+.env.production
 client/.env*
 server/.env*
 
