@@ -75,7 +75,25 @@ const S = `
   .att-salary-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; color: var(--text3); }
   .att-salary-row span:last-child { font-weight: 700; color: var(--text); }
   .att-salary-total { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; font-size: 14px; font-weight: 800; color: var(--navy); }
-  @media (max-width: 600px) { .att-check-row { grid-template-columns: 1fr; } .att-form-row { grid-template-columns: 1fr; } .att-clock-time { font-size: 36px; } }
+  
+  @media (max-width: 600px) {
+    .att-check-row { grid-template-columns: 1fr; }
+    .att-form-row { grid-template-columns: 1fr; }
+    .att-clock-time { font-size: 36px !important; }
+    .att-salary-grid { grid-template-columns: 1fr !important; }
+    .att-page { padding: 12px !important; }
+    .att-tabs { padding: 0 10px !important; }
+    .att-tab { padding: 10px 10px !important; font-size: 12px !important; }
+    .att-topbar { padding: 0 12px !important; }
+    .att-ist-badge { display: none; }
+    .att-topbar-name { font-size: 12px !important; }
+    .att-summary-table th, .att-summary-table td { padding: 8px 8px !important; font-size: 11px !important; }
+  }
+  @media (max-width: 400px) {
+    .att-clock-time { font-size: 28px !important; }
+    .att-tab { padding: 9px 8px !important; font-size: 11px !important; }
+  }
+
 `;
 
 const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -241,7 +259,7 @@ export default function Attendance() {
             <button onClick={() => navigate("/dashboard")} style={{ background: "none", border: "none", color: "#7ab8f5", cursor: "pointer", fontSize: 18, display: "flex" }}>←</button>
             <div className="att-logo">CA <span>Office</span></div>
             <span className="att-role-pill">{currentUser.role}</span>
-            <span style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{currentUser.name}</span>
+            <span className="att-topbar-name" style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{currentUser.name}</span>
           </div>
           <div className="att-ist-badge">IST {fmtTime(ist)}</div>
         </div>

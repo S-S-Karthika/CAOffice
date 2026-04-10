@@ -125,7 +125,7 @@ function AddUserModal({ onClose, onSaved }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ background: "#fff", borderRadius: 16, width: 420, padding: 28, boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "min(420px, calc(100vw - 24px))", padding: 28, boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
           <div>
             <div style={{ fontSize: 17, fontWeight: 800, color: "#1e293b" }}>Add New User</div>
@@ -199,7 +199,7 @@ function ResetPasswordModal({ user: targetUser, onClose, onSaved }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ background: "#fff", borderRadius: 16, width: 380, padding: 28, boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "min(380px, calc(100vw - 24px))", padding: 28, boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 800, color: "#1e293b" }}>Reset Password</div>
@@ -269,13 +269,21 @@ export default function Settings() {
     { key: "reimb",    label: "Reimb",    icon: ICONS.reimb },
     { key: "settings", label: "Settings", icon: ICONS.settings },
   ];
+  const NAV_ROUTES = {
+    dash:     "/dashboard",
+    works:    "/works",
+    clients:  "/clients",
+    finance:  "/finance",
+    add:      "/add-client",
+    attend:   "/attendance",
+    cal:      "/cal",
+    reimb:    "/reimbursement",
+    settings: "/settings",
+  };
+
   function handleNav(key) {
-    if (key === "add") { navigate("/add-client"); return; }
-    if (key === "clients") { navigate("/clients"); return; }
-    if (key === "reimb") { navigate("/reimbursement"); return; }
-    if (key === "attend") { navigate("/attendance"); return; }
-    if (key === "works")    { navigate("/works");    return; }
-    if (key === "settings") { navigate("/settings"); return; }
+    const route = NAV_ROUTES[key];
+    if (route) navigate(route);
     setActiveNav(key);
   }
 
@@ -382,10 +390,48 @@ export default function Settings() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div style={{ display: "flex", height: "100vh", fontFamily: "'Segoe UI', sans-serif", background: "#f1f5f9", overflow: "hidden" }}>
+    <>
+    <style>{`
+  @media (max-width: 768px) {
+    .ca-sidebar { display: none !important; }
+    .ca-bottom-nav { display: flex !important; }
+    .ca-main { padding-bottom: 68px !important; }
+    .ca-header-name { display: none !important; }
+  }
+  @media (max-width: 520px) {
+    .ca-header { padding: 0 12px !important; }
+    .ca-page-pad { padding: 12px 10px !important; }
+    .ca-modal-wide { width: calc(100vw - 24px) !important; max-height: 90vh !important; }
+    .ca-row2 { grid-template-columns: 1fr !important; }
+    .ca-summary-3 { grid-template-columns: 1fr 1fr !important; }
+    .ca-client-drawer { width: 100% !important; }
+  }
+  .ca-bottom-nav {
+    display: none;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #0f172a; height: 60px; z-index: 200;
+    border-top: 1px solid #1e3a5f;
+  }
+  .ca-bnscroll {
+    display: flex; width: 100%; height: 100%;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; padding: 0 2px; align-items: center;
+  }
+  .ca-bnscroll::-webkit-scrollbar { display: none; }
+  .ca-bn-item {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; padding: 0 10px; border: none; background: none; cursor: pointer;
+    color: #94a3b8; font-family: 'Segoe UI', sans-serif; min-width: 48px;
+    flex-shrink: 0; position: relative; height: 100%;
+  }
+  .ca-bn-item.active { color: #3b82f6; }
+  .ca-bn-item > span { font-size: 9px; font-weight: 600; white-space: nowrap; }
+  .ca-bn-dot { position: absolute; top: 8px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: #3b82f6; }
+`}</style>
+      <div style={{ display: "flex", height: "100vh", fontFamily: "'Segoe UI', sans-serif", background: "#f1f5f9", overflow: "hidden" }}>
 
       {/* Sidebar */}
-      <aside style={{ width: 72, background: "#0f172a", display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 0", gap: 2, flexShrink: 0, overflowY: "auto" }}>
+      <aside className="ca-sidebar" style={{ width: 72, background: "#0f172a", display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 0", gap: 2, flexShrink: 0, overflowY: "auto" }}>
         {navItems.map(n => (
           <NavItem key={n.key} label={n.label} iconPath={n.icon} active={activeNav === n.key && n.key === "settings"} onClick={() => handleNav(n.key)} />
         ))}
@@ -394,16 +440,16 @@ export default function Settings() {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
         {/* Topbar */}
-        <header style={{ height: 54, background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", flexShrink: 0 }}>
+        <header className="ca-header" style={{ height: 54, background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div><span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>CA </span><span style={{ color: "#3b82f6", fontWeight: 700, fontSize: 16 }}>Office</span></div>
             <div style={{ background: "#1e3a5f", color: "#60a5fa", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6 }}>{user.role}</div>
-            <div style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>{user.name.toUpperCase()}</div>
+            <div className="ca-header-name" style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>{user.name.toUpperCase()}</div>
           </div>
         </header>
 
         {/* Page body */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "24px 28px" }}>
+        <div className="ca-main" style={{ flex: 1, overflowY: "auto", padding: "24px 28px" }}>
 
           <div style={{ fontSize: 22, fontWeight: 700, color: "#1e293b", marginBottom: 4 }}>Settings</div>
           <div style={{ fontSize: 13, color: "#64748b", marginBottom: 24 }}>App configuration &amp; preferences</div>
@@ -515,7 +561,7 @@ export default function Settings() {
             {/* ── BANK & UPI (CA only) ─────────────────────────────────────── */}
             {isCA && (
               <Section title="Bank & UPI Details" subtitle="Used in invoices and WhatsApp messages" icon={ICONS.bank} accent="#10b981">
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px,1fr))", gap: 12, marginBottom: 12 }}>
                   <div>
                     <label style={lbl}>Bank Name</label>
                     <input style={inp} placeholder="e.g. State Bank of India" value={bank.bankName} onChange={e => setBank(p => ({ ...p, bankName: e.target.value }))} />
@@ -600,7 +646,7 @@ export default function Settings() {
 
             {/* ── App info ─────────────────────────────────────────────────── */}
             <div style={{ textAlign: "center", padding: "16px 0", color: "#94a3b8", fontSize: 12 }}>
-              CA Office v4 · Developed by CA SK KavinRaj · MySQL Backend
+              CA Office v4 · Developed by Karthika SS 
             </div>
 
           </div>
@@ -610,6 +656,20 @@ export default function Settings() {
       {/* Modals */}
       {showAddUser  && <AddUserModal onClose={() => setShowAddUser(false)} onSaved={loadUsers} />}
       {resetPwUser  && <ResetPasswordModal user={resetPwUser} onClose={() => setResetPwUser(null)} onSaved={loadUsers} />}
+      {/* Mobile Bottom Nav */}
+      <nav className="ca-bottom-nav">
+        <div className="ca-bnscroll">
+          {navItems.map(n => (
+            <button key={n.key} className={`ca-bn-item ${activeNav === n.key ? "active" : ""}`} onClick={() => handleNav(n.key)}>
+              {n.dot && <span className="ca-bn-dot" />}
+              <Icon d={n.icon} size={20} stroke={activeNav === n.key ? "#3b82f6" : "#94a3b8"} />
+              <span>{n.label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
+
     </div>
+    </>
   );
 }

@@ -2,12 +2,13 @@ const express = require("express");
 const mysql   = require("mysql2/promise");
 const cors    = require("cors");
 const bcrypt  = require("bcryptjs");
-
+require("dotenv").config();
 const app = express();
 app.use(cors({
   origin: [
     "http://localhost:3000",
-    "https://ca-office.vercel.app"
+    "https://ca-office.vercel.app",
+    "http://10.0.2.2:5000"
   ],
   credentials: true
 }));
@@ -24,6 +25,15 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
 });
+
+setInterval(async () => {
+  try {
+    await pool.query("SELECT 1");
+    console.log("DB Keep Alive Ping");
+  } catch (err) {
+    console.error("Ping Failed:", err.message);
+  }
+}, 5 * 60 * 1000);
 
 // ─── Init DB ──────────────────────────────────────────────────────────────────
 async function initDB() {

@@ -71,7 +71,7 @@ function PendingWorksPopup({ clientName, works, onClose }) {
   return (
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 400, cursor: "pointer" }} />
-      <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: "#fff", borderRadius: 14, width: 480, maxHeight: "75vh", display: "flex", flexDirection: "column", zIndex: 401, boxShadow: "0 16px 48px rgba(0,0,0,0.22)" }}>
+      <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: "#fff", borderRadius: 14, width: "min(480px, calc(100vw - 24px))", maxHeight: "80vh", display: "flex", flexDirection: "column", zIndex: 401, boxShadow: "0 16px 48px rgba(0,0,0,0.22)" }}>
         <div style={{ background: "#0f172a", borderRadius: "14px 14px 0 0", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
             <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>Pending Works</div>
@@ -140,7 +140,7 @@ function AddWorkModal({ clientRow, staffList, caList, onClose, onSaved }) {
   return (
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 400, cursor: "pointer" }} />
-      <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: "#fff", borderRadius: 14, width: 520, maxHeight: "88vh", display: "flex", flexDirection: "column", zIndex: 401, boxShadow: "0 16px 48px rgba(0,0,0,0.22)" }}>
+      <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: "#fff", borderRadius: 14, width: "min(520px, calc(100vw - 24px))", maxHeight: "88vh", display: "flex", flexDirection: "column", zIndex: 401, boxShadow: "0 16px 48px rgba(0,0,0,0.22)" }}>
         <div style={{ background: "#0f172a", borderRadius: "14px 14px 0 0", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <Avatar name={clientRow.clientName} size={36} />
@@ -227,7 +227,7 @@ function ClientDrawer({ row, allWorks, staffList, caList, onClose, onWorkAdded }
   return (
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 300, cursor: "pointer" }} />
-      <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: 430, background: "#fff", zIndex: 301, display: "flex", flexDirection: "column", boxShadow: "-4px 0 32px rgba(0,0,0,0.16)" }}>
+      <div className="ca-client-drawer" style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: 430, background: "#fff", zIndex: 301, display: "flex", flexDirection: "column", boxShadow: "-4px 0 32px rgba(0,0,0,0.16)" }}>
         <div style={{ background: "#0f172a", padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <Avatar name={row.clientName} size={40} />
@@ -251,7 +251,7 @@ function ClientDrawer({ row, allWorks, staffList, caList, onClose, onWorkAdded }
             </div>
           ))}
         </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: "12px 18px" }}>
+        <div className="ca-main" style={{ flex: 1, overflowY: "auto", padding: "12px 18px" }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Works ({clientWorks.length})</div>
           {clientWorks.length === 0 ? <div style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, padding: "30px 0" }}>No works yet</div>
           : clientWorks.map((w, i) => {
@@ -375,17 +375,55 @@ export default function Clients() {
   });
 
   return (
-    <div style={{ display: "flex", height: "100vh", fontFamily: "'Segoe UI', sans-serif", background: "#f1f5f9", overflow: "hidden" }}>
-      <aside style={{ width: 72, background: "#0f172a", display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 0", gap: 2, flexShrink: 0, overflowY: "auto" }}>
+    <>
+    <style>{`
+  @media (max-width: 768px) {
+    .ca-sidebar { display: none !important; }
+    .ca-bottom-nav { display: flex !important; }
+    .ca-main { padding-bottom: 68px !important; }
+    .ca-header-name { display: none !important; }
+  }
+  @media (max-width: 520px) {
+    .ca-header { padding: 0 12px !important; }
+    .ca-page-pad { padding: 12px 10px !important; }
+    .ca-modal-wide { width: calc(100vw - 24px) !important; max-height: 90vh !important; }
+    .ca-row2 { grid-template-columns: 1fr !important; }
+    .ca-summary-3 { grid-template-columns: 1fr 1fr !important; }
+    .ca-client-drawer { width: 100% !important; }
+  }
+  .ca-bottom-nav {
+    display: none;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #0f172a; height: 60px; z-index: 200;
+    border-top: 1px solid #1e3a5f;
+  }
+  .ca-bnscroll {
+    display: flex; width: 100%; height: 100%;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; padding: 0 2px; align-items: center;
+  }
+  .ca-bnscroll::-webkit-scrollbar { display: none; }
+  .ca-bn-item {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; padding: 0 10px; border: none; background: none; cursor: pointer;
+    color: #94a3b8; font-family: 'Segoe UI', sans-serif; min-width: 48px;
+    flex-shrink: 0; position: relative; height: 100%;
+  }
+  .ca-bn-item.active { color: #3b82f6; }
+  .ca-bn-item > span { font-size: 9px; font-weight: 600; white-space: nowrap; }
+  .ca-bn-dot { position: absolute; top: 8px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: #3b82f6; }
+`}</style>
+      <div style={{ display: "flex", height: "100vh", fontFamily: "'Segoe UI', sans-serif", background: "#f1f5f9", overflow: "hidden" }}>
+      <aside className="ca-sidebar" style={{ width: 72, background: "#0f172a", display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 0", gap: 2, flexShrink: 0, overflowY: "auto" }}>
         {navItems.map(n => <NavItem key={n.key} label={n.label} iconPath={n.icon} active={activeNav === n.key && n.key !== "add"} dot={n.dot} onClick={() => handleNav(n.key)} />)}
       </aside>
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <header style={{ height: 54, background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", flexShrink: 0 }}>
+        <header className="ca-header" style={{ height: 54, background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div><span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>CA </span><span style={{ color: "#3b82f6", fontWeight: 700, fontSize: 16 }}>Office</span></div>
             <div style={{ background: "#1e3a5f", color: "#60a5fa", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6 }}>{user.role}</div>
-            <div style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>{user.name.toUpperCase()}</div>
+            <div className="ca-header-name" style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>{user.name.toUpperCase()}</div>
           </div>
           <button style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "1px solid #334155", borderRadius: 8, color: "#94a3b8", padding: "5px 14px", cursor: "pointer", fontSize: 13, fontFamily: "'Segoe UI', sans-serif" }} onClick={fetchAll}>
             <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981", display: "inline-block" }} /> Sync
@@ -477,6 +515,20 @@ export default function Clients() {
 
       {selected && <ClientDrawer row={selected} allWorks={allWorks} staffList={staffList} caList={caList} onClose={() => setSelected(null)} onWorkAdded={() => { fetchAll(); setSelected(null); }} />}
       {pendingPopup && <PendingWorksPopup clientName={pendingPopup} works={allWorks} onClose={() => setPendingPopup(null)} />}
+      {/* Mobile Bottom Nav */}
+      <nav className="ca-bottom-nav">
+        <div className="ca-bnscroll">
+          {navItems.map(n => (
+            <button key={n.key} className={`ca-bn-item ${activeNav === n.key ? "active" : ""}`} onClick={() => handleNav(n.key)}>
+              {n.dot && <span className="ca-bn-dot" />}
+              <Icon d={n.icon} size={20} stroke={activeNav === n.key ? "#3b82f6" : "#94a3b8"} />
+              <span>{n.label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
+
     </div>
+    </>
   );
 }

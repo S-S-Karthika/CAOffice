@@ -240,10 +240,26 @@ const S = `
   /* AMOUNT */
   .rb-amount { font-family: var(--mono); font-weight: 700; }
 
+
   @media (max-width: 600px) {
-    .rb-form-row  { grid-template-columns: 1fr; }
-    .rb-form-row3 { grid-template-columns: 1fr; }
+    .rb-form-row  { grid-template-columns: 1fr !important; }
+    .rb-form-row3 { grid-template-columns: 1fr !important; }
+    .rb-page { padding: 12px !important; }
+    .rb-tabs { padding: 0 8px !important; }
+    .rb-tab { padding: 10px 10px !important; font-size: 12px !important; }
+    .rb-topbar { padding: 0 12px !important; }
+    .rb-source-toggle { flex-direction: column !important; }
+    .rb-summary-grid { grid-template-columns: 1fr 1fr !important; }
+    .rb-table th, .rb-table td { padding: 8px 8px !important; font-size: 12px !important; }
+    .rb-table th:nth-child(4), .rb-table td:nth-child(4),
+    .rb-table th:nth-child(7), .rb-table td:nth-child(7),
+    .rb-table th:nth-child(8), .rb-table td:nth-child(8) { display: none; }
   }
+  @media (max-width: 400px) {
+    .rb-summary-grid { grid-template-columns: 1fr !important; }
+    .rb-tab { font-size: 11px !important; padding: 9px 8px !important; }
+  }
+
 `;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
