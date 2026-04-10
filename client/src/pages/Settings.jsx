@@ -299,7 +299,7 @@ export default function Settings() {
 
     // Load users (CA only)
     if (isCA) loadUsers();
-  }, []);
+  }, [isCA]);
 
   function loadUsers() {
     axios.get(`${API}/api/users/all`)
