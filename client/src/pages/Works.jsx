@@ -728,7 +728,7 @@ export default function Works() {
     }).catch(console.error).finally(()=>setLoading(false));
   };
 
-  useEffect(()=>{ fetchAll(); },[fetchAll]);
+  useEffect(()=>{ fetchAll(); },[]);
 
   // ── Local state mutations — no full refetch ─────────────────────────────────
   const handleStatusChange = (id, newStatus) =>

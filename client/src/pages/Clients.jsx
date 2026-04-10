@@ -311,7 +311,7 @@ export default function Clients() {
     }).catch(console.error).finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { fetchAll(); }, []);
 
   // Build unique clients
   const clientMap = new Map();
