@@ -242,26 +242,100 @@ function DueSummaryCards({ works }) {
   );
 }
 
+// ─── UPDATED: TodoSection with "Add Today's Work" notes ───────────────────────
 function TodoSection({ works }) {
   const [activeTab, setActiveTab] = useState("Today");
+  const [notes, setNotes] = useState([]); // local daily notes
+  const [showNoteInput, setShowNoteInput] = useState(false);
+  const [noteText, setNoteText] = useState("");
   const today = todayDate();
+
   const filtered = {
     Today: works.filter((w) => { const d = toDate(w.expectedCompletion); return d && d.getTime() === today.getTime() && w.status !== "Completed"; }),
     Upcoming: works.filter((w) => { const d = toDate(w.expectedCompletion); return d && d > today && w.status !== "Completed"; }),
     Completed: works.filter((w) => w.status === "Completed"),
   };
   const list = filtered[activeTab] || [];
+
+  function addNote() {
+    const text = noteText.trim();
+    if (!text) return;
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+    setNotes((prev) => [{ id: Date.now(), text, time: timeStr }, ...prev]);
+    setNoteText("");
+    setShowNoteInput(false);
+  }
+
+  function removeNote(id) {
+    setNotes((prev) => prev.filter((n) => n.id !== id));
+  }
+
   return (
     <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
+      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid #f1f5f9" }}>
         <span style={{ fontWeight: 700, fontSize: 15, color: "#1e293b" }}>To-Do</span>
+        <button
+          onClick={() => { setShowNoteInput((v) => !v); setNoteText(""); }}
+          style={{ display: "flex", alignItems: "center", gap: 5, background: "#3b82f6", color: "#fff", border: "none", borderRadius: 7, padding: "5px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Segoe UI', sans-serif" }}
+        >
+          <span style={{ fontSize: 15, lineHeight: 1 }}>+</span> Add Today's Work
+        </button>
       </div>
+
+      {/* Inline note input box */}
+      {showNoteInput && (
+        <div style={{ margin: "10px 16px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "12px 14px" }}>
+          <textarea
+            autoFocus
+            value={noteText}
+            onChange={(e) => setNoteText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addNote(); } if (e.key === "Escape") { setShowNoteInput(false); setNoteText(""); } }}
+            placeholder="Type your work note… (Enter to save, Esc to cancel)"
+            style={{ width: "100%", border: "none", background: "transparent", resize: "none", outline: "none", fontFamily: "'Segoe UI', sans-serif", fontSize: 13, color: "#92400e", minHeight: 60, boxSizing: "border-box" }}
+          />
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
+            <button onClick={() => { setShowNoteInput(false); setNoteText(""); }}
+              style={{ background: "none", border: "1px solid #fcd34d", color: "#b45309", borderRadius: 6, padding: "4px 12px", fontSize: 12, cursor: "pointer", fontFamily: "'Segoe UI', sans-serif", fontWeight: 600 }}>
+              Cancel
+            </button>
+            <button onClick={addNote}
+              style={{ background: "#f59e0b", border: "none", color: "#fff", borderRadius: 6, padding: "4px 14px", fontSize: 12, cursor: "pointer", fontFamily: "'Segoe UI', sans-serif", fontWeight: 700 }}>
+              Save Note
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tabs */}
       <div style={{ display: "flex", borderBottom: "1px solid #f1f5f9", overflowX: "auto" }}>
         {["Today", "Upcoming", "Completed"].map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: "9px 14px", fontSize: 13, border: "none", background: "none", cursor: "pointer", fontWeight: 600, fontFamily: "'Segoe UI', sans-serif", color: activeTab === tab ? "#1e293b" : "#94a3b8", borderBottom: activeTab === tab ? "2px solid #1e293b" : "2px solid transparent", marginBottom: -1, whiteSpace: "nowrap" }}>{tab}</button>
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            style={{ padding: "9px 14px", fontSize: 13, border: "none", background: "none", cursor: "pointer", fontWeight: 600, fontFamily: "'Segoe UI', sans-serif", color: activeTab === tab ? "#1e293b" : "#94a3b8", borderBottom: activeTab === tab ? "2px solid #1e293b" : "2px solid transparent", marginBottom: -1, whiteSpace: "nowrap" }}>
+            {tab}
+          </button>
         ))}
       </div>
-      {list.length === 0 ? (
+
+      {/* Notes (only shown in Today tab) */}
+      {activeTab === "Today" && notes.map((note) => (
+        <div key={note.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, margin: "8px 16px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 9, padding: "10px 13px" }}>
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#f59e0b", flexShrink: 0, marginTop: 4 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, color: "#92400e", lineHeight: 1.5 }}>{note.text}</div>
+            <div style={{ fontSize: 10, color: "#b45309", marginTop: 3 }}>Added at {note.time}</div>
+          </div>
+          <button onClick={() => removeNote(note.id)}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: 18, lineHeight: 1, padding: 0, flexShrink: 0 }}
+            title="Remove note">
+            ×
+          </button>
+        </div>
+      ))}
+
+      {/* Work items */}
+      {list.length === 0 && (activeTab !== "Today" || notes.length === 0) ? (
         <div style={{ padding: "18px 16px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No tasks for {activeTab.toLowerCase()}</div>
       ) : list.map((w) => (
         <div key={w.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 16px", borderBottom: "1px solid #f8fafc" }}>
@@ -366,28 +440,6 @@ function TaskSummary({ works }) {
   );
 }
 
-function PendingVerification({ works }) {
-  const pending = works.filter((w) => w.status === "Review");
-  return (
-    <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
-      <div style={{ padding: "13px 16px", borderBottom: "1px solid #f1f5f9" }}>
-        <span style={{ fontWeight: 700, fontSize: 15, color: "#3b82f6" }}>Pending Verification</span>
-      </div>
-      {pending.length === 0 ? (
-        <div style={{ padding: "20px 16px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No works pending review</div>
-      ) : pending.map((w) => (
-        <div key={w.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 16px", borderBottom: "1px solid #f8fafc" }}>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: 13, color: "#1e293b" }}>{w.clientName}</div>
-            <div style={{ fontSize: 11, color: "#64748b" }}>{w.workNature}</div>
-          </div>
-          <Avatar name={w.assignedTo || "?"} size={27} />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function AttendanceSection({ attendance }) {
   const today = todayDate();
   const monthLabel = `${MONTHS[today.getMonth()]} ${today.getFullYear()}`;
@@ -437,6 +489,58 @@ function AttendanceSection({ attendance }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// ─── NEW: OrganizationClients (replaces PendingVerification) ──────────────────
+function OrganizationClients({ works }) {
+  // Group by organization field; blank org goes under "Unspecified"
+  const orgMap = {};
+  works.forEach((w) => {
+    const org = (w.organization || "").trim() || "Unspecified";
+    if (!orgMap[org]) orgMap[org] = 0;
+    orgMap[org]++;
+  });
+
+  // Sort by count descending
+  const orgList = Object.entries(orgMap).sort((a, b) => b[1] - a[1]);
+  const maxCount = orgList.length > 0 ? orgList[0][1] : 1;
+
+  // Accent colors cycling
+  const ORG_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444", "#06b6d4", "#ec4899", "#14b8a6"];
+
+  return (
+    <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 16px", borderBottom: "1px solid #f1f5f9" }}>
+        <span style={{ fontWeight: 700, fontSize: 15, color: "#1e293b" }}>Organization Clients</span>
+        <span style={{ fontSize: 11, color: "#94a3b8" }}>{orgList.length} org{orgList.length !== 1 ? "s" : ""}</span>
+      </div>
+
+      {orgList.length === 0 ? (
+        <div style={{ padding: "20px 16px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No client data available</div>
+      ) : orgList.map(([org, count], idx) => {
+        const color = ORG_COLORS[idx % ORG_COLORS.length];
+        const barPct = Math.round((count / maxCount) * 100);
+        return (
+          <div key={org} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderBottom: idx < orgList.length - 1 ? "1px solid #f8fafc" : "none" }}>
+            {/* Color dot */}
+            <div style={{ width: 9, height: 9, borderRadius: "50%", background: color, flexShrink: 0 }} />
+            {/* Org name */}
+            <div style={{ fontWeight: 600, fontSize: 13, color: "#1e293b", minWidth: 90, flex: 1 }}>{org}</div>
+            {/* Bar */}
+            <div style={{ flex: 2, background: "#f1f5f9", borderRadius: 4, height: 6, overflow: "hidden" }}>
+              <div style={{ width: `${barPct}%`, background: color, height: "100%", borderRadius: 4, transition: "width 0.4s ease" }} />
+            </div>
+            {/* Count badge */}
+            <div style={{ minWidth: 32, textAlign: "right" }}>
+              <span style={{ display: "inline-block", background: `${color}18`, color: color, fontSize: 12, fontWeight: 800, padding: "2px 9px", borderRadius: 20 }}>
+                {count}
+              </span>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -529,7 +633,8 @@ export default function Dashboard() {
                 <TodoSection works={works} />
                 <WorkCalendar works={works} />
                 <AttendanceSection attendance={attendance} />
-                <PendingVerification works={works} />
+                {/* ← OrganizationClients replaces PendingVerification */}
+                <OrganizationClients works={works} />
               </>
             )}
           </div>
