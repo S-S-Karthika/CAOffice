@@ -14,6 +14,8 @@ const ICONS = {
   plus:"M12 5v14M5 12h14",
   clock:"M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
   sync:"M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
+  trash:"M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2",
+  warn:"M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z",
 };
 const STATUS_CFG = {
   "Pending":     { color:"#f59e0b",bg:"#fef3c7",text:"#d97706" },
@@ -129,31 +131,99 @@ function AddWorkModal({ clientRow, staffList, caList, onClose, onSaved }) {
   );
 }
 
+// ─── Delete Confirm Modal ─────────────────────────────────────────────────────
+function DeleteConfirmModal({ title, message, onConfirm, onClose, danger=true }) {
+  const [confirming, setConfirming] = useState(false);
+  async function go() {
+    setConfirming(true);
+    try { await onConfirm(); onClose(); }
+    catch { setConfirming(false); }
+  }
+  return (
+    <>
+      <div onClick={onClose} style={{ position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:600,cursor:"pointer" }}/>
+      <div style={{ position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",background:"#fff",borderRadius:16,width:"min(380px,calc(100vw - 32px))",padding:24,zIndex:601,boxShadow:"0 24px 64px rgba(0,0,0,.22)" }}>
+        <div style={{ display:"flex",alignItems:"center",gap:12,marginBottom:14 }}>
+          <div style={{ width:40,height:40,borderRadius:12,background:"var(--red-m)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+            <Icon d={ICONS.warn} size={20} stroke="var(--red)" sw={2}/>
+          </div>
+          <div style={{ fontSize:16,fontWeight:700,color:"var(--text)" }}>{title}</div>
+        </div>
+        <div style={{ fontSize:13,color:"var(--text3)",lineHeight:1.6,marginBottom:20 }}>{message}</div>
+        <div style={{ display:"flex",gap:10 }}>
+          <button onClick={onClose} className="ca-btn-outline" style={{ flex:1,justifyContent:"center" }}>Cancel</button>
+          <button onClick={go} disabled={confirming} style={{ flex:1,padding:"10px",borderRadius:"var(--r-md)",border:"none",background:"var(--red)",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13,fontFamily:"var(--font)",display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}>
+            <Icon d={ICONS.trash} size={14} stroke="#fff" sw={2.5}/>
+            {confirming?"Deleting…":"Delete"}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── Client Detail Drawer ─────────────────────────────────────────────────────
-function ClientDrawer({ row, allWorks, staffList, caList, onClose, onWorkAdded }) {
-  const [addingWork,setAddingWork] = useState(false);
+function ClientDrawer({ row, allWorks, staffList, caList, onClose, onWorkAdded, onClientDeleted }) {
+  const [addingWork, setAddingWork]       = useState(false);
+  const [deletingWork, setDeletingWork]   = useState(null); // work object to delete
+  const [confirmDeleteClient, setConfirmDeleteClient] = useState(false);
+
+  const user = (() => { try { return JSON.parse(localStorage.getItem("cao_user")||'{"role":"Staff"}'); } catch { return {role:"Staff"}; } })();
+  const isCA = user.role === "CA";
+
   if (!row) return null;
   const clientWorks = allWorks.filter(w=>w.clientName?.toLowerCase()===row.clientName?.toLowerCase());
-  const stats = { total:clientWorks.length, completed:clientWorks.filter(r=>r.status==="Completed").length, inProgress:clientWorks.filter(r=>r.status==="In Progress").length, pending:clientWorks.filter(r=>PENDING_STATUSES.includes(r.status||"Pending")).length };
+  const stats = {
+    total:clientWorks.length,
+    completed:clientWorks.filter(r=>r.status==="Completed").length,
+    inProgress:clientWorks.filter(r=>r.status==="In Progress").length,
+    pending:clientWorks.filter(r=>PENDING_STATUSES.includes(r.status||"Pending")).length,
+  };
+
+  async function deleteWork(work) {
+    await axios.delete(`${API}/works/${work.id}`);
+    onWorkAdded(); // refresh list
+  }
+
+  async function deleteAllClientWorks() {
+    // Delete every work for this client
+    await Promise.all(clientWorks.map(w => axios.delete(`${API}/works/${w.id}`)));
+    onClientDeleted(row.clientName);
+    onClose();
+  }
+
   return (
     <>
       <div onClick={onClose} style={{ position:"fixed",inset:0,background:"rgba(0,0,0,.4)",zIndex:300,cursor:"pointer" }}/>
-      <div style={{ position:"fixed",top:0,right:0,bottom:0,width:430,background:"#fff",zIndex:301,display:"flex",flexDirection:"column",boxShadow:"-4px 0 32px rgba(0,0,0,.16)" }}>
+      <div style={{ position:"fixed",top:0,right:0,bottom:0,width:"min(430px,100vw)",background:"#fff",zIndex:301,display:"flex",flexDirection:"column",boxShadow:"-4px 0 32px rgba(0,0,0,.16)" }}>
+
+        {/* Header */}
         <div style={{ background:"var(--navy)",padding:"16px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0 }}>
-          <div style={{ display:"flex",alignItems:"center",gap:12 }}>
+          <div style={{ display:"flex",alignItems:"center",gap:12,minWidth:0 }}>
             <Avatar name={row.clientName} size={40}/>
-            <div>
-              <div style={{ color:"#fff",fontWeight:700,fontSize:15 }}>{row.clientName}</div>
+            <div style={{ minWidth:0 }}>
+              <div style={{ color:"#fff",fontWeight:700,fontSize:15,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{row.clientName}</div>
               <div style={{ color:"rgba(255,255,255,.4)",fontSize:11,marginTop:2 }}>{row.pan||"No PAN"} · {row.contactNo||"No contact"}</div>
             </div>
           </div>
-          <div style={{ display:"flex",gap:8 }}>
-            <button onClick={()=>setAddingWork(true)} style={{ background:"rgba(255,255,255,.12)",border:"none",borderRadius:8,color:"#fff",padding:"7px 12px",cursor:"pointer",fontSize:12,fontWeight:700,display:"flex",alignItems:"center",gap:5,fontFamily:"var(--font)" }}>
-              <Icon d={ICONS.plus} size={14} stroke="#fff"/> Add Work
+          <div style={{ display:"flex",gap:6,flexShrink:0 }}>
+            {isCA && (
+              <button onClick={()=>setAddingWork(true)} style={{ background:"rgba(255,255,255,.12)",border:"none",borderRadius:8,color:"#fff",padding:"7px 11px",cursor:"pointer",fontSize:12,fontWeight:700,display:"flex",alignItems:"center",gap:5,fontFamily:"var(--font)" }}>
+                <Icon d={ICONS.plus} size={14} stroke="#fff"/> Add Work
+              </button>
+            )}
+            {isCA && (
+              <button onClick={()=>setConfirmDeleteClient(true)} title="Delete client & all works" style={{ background:"rgba(220,38,38,.25)",border:"1px solid rgba(220,38,38,.4)",borderRadius:8,color:"#FCA5A5",padding:"7px 9px",cursor:"pointer",display:"flex",alignItems:"center",gap:4,fontFamily:"var(--font)",fontSize:11,fontWeight:700 }}>
+                <Icon d={ICONS.trash} size={14} stroke="#FCA5A5"/> Delete Client
+              </button>
+            )}
+            <button onClick={onClose} style={{ background:"rgba(255,255,255,.1)",border:"none",borderRadius:8,color:"#fff",padding:8,cursor:"pointer",display:"flex" }}>
+              <Icon d={ICONS.close} size={18}/>
             </button>
-            <button onClick={onClose} style={{ background:"rgba(255,255,255,.1)",border:"none",borderRadius:8,color:"#fff",padding:8,cursor:"pointer",display:"flex" }}><Icon d={ICONS.close} size={18}/></button>
           </div>
         </div>
+
+        {/* Stats strip */}
         <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:1,background:"#e2e8f0",borderBottom:"1px solid #e2e8f0",flexShrink:0 }}>
           {[{label:"Total",val:stats.total,color:"var(--text)"},{label:"Completed",val:stats.completed,color:"var(--green)"},{label:"Active",val:stats.inProgress,color:"var(--blue)"},{label:"Pending",val:stats.pending,color:"var(--amber)"}].map(s=>(
             <div key={s.label} style={{ background:"#fff",padding:"11px 6px",textAlign:"center" }}>
@@ -162,28 +232,70 @@ function ClientDrawer({ row, allWorks, staffList, caList, onClose, onWorkAdded }
             </div>
           ))}
         </div>
+
+        {/* Works list */}
         <div style={{ flex:1,overflowY:"auto",padding:"12px 18px" }}>
           <div style={{ fontSize:10,fontWeight:700,color:"var(--text4)",textTransform:"uppercase",letterSpacing:".08em",marginBottom:10 }}>Works ({clientWorks.length})</div>
-          {clientWorks.length===0?<div style={{ textAlign:"center",color:"var(--text4)",fontSize:13,padding:"30px 0" }}>No works yet</div>
-          :clientWorks.map((w,i)=>{const cfg=STATUS_CFG[w.status]||STATUS_CFG["Pending"];return(
-            <div key={i} style={{ border:"1px solid var(--border)",borderLeft:`3px solid ${cfg.color}`,borderRadius:10,padding:"11px 13px",marginBottom:8 }}>
-              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8 }}>
-                <div>
-                  <div style={{ fontSize:13,fontWeight:700,color:"var(--text)" }}>{w.workNature||"—"}</div>
-                  <div style={{ fontSize:11,color:"var(--text3)",marginTop:2 }}>{w.month||""}</div>
+
+          {clientWorks.length===0 ? (
+            <div style={{ textAlign:"center",color:"var(--text4)",fontSize:13,padding:"30px 0" }}>No works yet</div>
+          ) : clientWorks.map((w,i)=>{
+            const cfg = STATUS_CFG[w.status]||STATUS_CFG["Pending"];
+            return (
+              <div key={i} style={{ border:"1px solid var(--border)",borderLeft:`3px solid ${cfg.color}`,borderRadius:10,padding:"11px 13px",marginBottom:8 }}>
+                <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8 }}>
+                  <div style={{ flex:1,minWidth:0 }}>
+                    <div style={{ fontSize:13,fontWeight:700,color:"var(--text)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{w.workNature||"—"}</div>
+                    <div style={{ fontSize:11,color:"var(--text3)",marginTop:2 }}>{w.month||""}</div>
+                  </div>
+                  <div style={{ display:"flex",alignItems:"center",gap:6,flexShrink:0 }}>
+                    <span style={{ fontSize:10,fontWeight:700,padding:"3px 9px",borderRadius:10,background:cfg.bg,color:cfg.text,whiteSpace:"nowrap" }}>{w.status}</span>
+                    {/* Delete work button — CA only */}
+                    {isCA && (
+                      <button
+                        onClick={()=>setDeletingWork(w)}
+                        title="Delete this work"
+                        style={{ padding:"4px 6px",borderRadius:6,border:"1px solid #FECACA",background:"var(--red-m)",cursor:"pointer",display:"flex",alignItems:"center",flexShrink:0 }}>
+                        <Icon d={ICONS.trash} size={12} stroke="var(--red)" sw={2.5}/>
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <span style={{ fontSize:10,fontWeight:700,padding:"3px 9px",borderRadius:10,background:cfg.bg,color:cfg.text }}>{w.status}</span>
+                <div style={{ display:"flex",gap:12,marginTop:7,flexWrap:"wrap" }}>
+                  {w.assignedTo&&<div style={{ display:"flex",alignItems:"center",gap:5 }}><Avatar name={w.assignedTo} size={18}/><span style={{ fontSize:11,color:"var(--text3)" }}>{w.assignedTo}</span></div>}
+                  {w.expectedCompletion&&<span style={{ fontSize:11,color:"var(--text4)" }}>Due {w.expectedCompletion}</span>}
+                  {w.priority==="Urgent"&&<span style={{ fontSize:10,fontWeight:700,color:"#ef4444" }}>🔴 URGENT</span>}
+                </div>
               </div>
-              <div style={{ display:"flex",gap:12,marginTop:7,flexWrap:"wrap" }}>
-                {w.assignedTo&&<div style={{ display:"flex",alignItems:"center",gap:5 }}><Avatar name={w.assignedTo} size={18}/><span style={{ fontSize:11,color:"var(--text3)" }}>{w.assignedTo}</span></div>}
-                {w.expectedCompletion&&<span style={{ fontSize:11,color:"var(--text4)" }}>Due {w.expectedCompletion}</span>}
-                {w.priority==="Urgent"&&<span style={{ fontSize:10,fontWeight:700,color:"#ef4444" }}>🔴 URGENT</span>}
-              </div>
-            </div>
-          );})}
+            );
+          })}
         </div>
       </div>
-      {addingWork&&<AddWorkModal clientRow={row} staffList={staffList} caList={caList} onClose={()=>setAddingWork(false)} onSaved={onWorkAdded}/>}
+
+      {/* Add Work Modal */}
+      {addingWork && (
+        <AddWorkModal clientRow={row} staffList={staffList} caList={caList} onClose={()=>setAddingWork(false)} onSaved={onWorkAdded}/>
+      )}
+
+      {/* Delete single work confirm */}
+      {deletingWork && (
+        <DeleteConfirmModal
+          title="Delete Work"
+          message={<>Are you sure you want to delete <strong>{deletingWork.workNature}</strong> for <strong>{deletingWork.clientName}</strong>? This cannot be undone.</>}
+          onConfirm={()=>deleteWork(deletingWork)}
+          onClose={()=>setDeletingWork(null)}
+        />
+      )}
+
+      {/* Delete entire client confirm */}
+      {confirmDeleteClient && (
+        <DeleteConfirmModal
+          title="Delete Client"
+          message={<>This will permanently delete <strong>{row.clientName}</strong> and all <strong>{clientWorks.length} work record{clientWorks.length!==1?"s":""}</strong> associated with this client. This cannot be undone.</>}
+          onConfirm={deleteAllClientWorks}
+          onClose={()=>setConfirmDeleteClient(false)}
+        />
+      )}
     </>
   );
 }
@@ -319,10 +431,18 @@ export default function Clients() {
                       </td>
                       <td style={{ padding:"12px 14px" }}>
                         {isCA?(
-                          <button onClick={()=>navigate("/add-client",{state:{prefill:{clientName:c.name,pan:c.pan,contactNo:c.contactNo,address:c.address,referredBy:c.referredBy}}})}
-                            style={{ display:"inline-flex",alignItems:"center",gap:5,background:"var(--blue-l)",color:"var(--blue)",border:"1px solid var(--blue-m)",borderRadius:7,padding:"6px 12px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"var(--font)" }}>
-                            <Icon d={ICONS.plus} size={13} stroke="var(--blue)"/> Work
-                          </button>
+                          <div style={{ display:"flex",gap:5,flexWrap:"wrap" }}>
+                            <button onClick={()=>navigate("/add-client",{state:{prefill:{clientName:c.name,pan:c.pan,contactNo:c.contactNo,address:c.address,referredBy:c.referredBy}}})}
+                              style={{ display:"inline-flex",alignItems:"center",gap:5,background:"var(--blue-l)",color:"var(--blue)",border:"1px solid var(--blue-m)",borderRadius:7,padding:"6px 10px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"var(--font)" }}>
+                              <Icon d={ICONS.plus} size={13} stroke="var(--blue)"/> Work
+                            </button>
+                            <button
+                              onClick={()=>{ if(window.confirm(`Delete ${c.name} and all their works? This cannot be undone.`)) { Promise.all(allWorks.filter(w=>w.clientName?.toLowerCase()===c.name.toLowerCase()).map(w=>axios.delete(`${API}/works/${w.id}`))).then(()=>fetchAll()); } }}
+                              title="Delete client"
+                              style={{ display:"inline-flex",alignItems:"center",gap:4,background:"var(--red-m)",color:"var(--red)",border:"1px solid #FECACA",borderRadius:7,padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"var(--font)" }}>
+                              <Icon d={ICONS.trash} size={13} stroke="var(--red)"/>
+                            </button>
+                          </div>
                         ):<span style={{ fontSize:11,color:"var(--text4)" }}>View only</span>}
                       </td>
                     </tr>
@@ -334,7 +454,7 @@ export default function Clients() {
         </div>
       </div>
 
-      {selected&&<ClientDrawer row={selected} allWorks={allWorks} staffList={staffList} caList={caList} onClose={()=>setSelected(null)} onWorkAdded={()=>{fetchAll();setSelected(null);}}/>}
+      {selected&&<ClientDrawer row={selected} allWorks={allWorks} staffList={staffList} caList={caList} onClose={()=>setSelected(null)} onWorkAdded={()=>{fetchAll();setSelected(null);}} onClientDeleted={(name)=>{ setAllWorks(prev=>prev.filter(w=>w.clientName?.toLowerCase()!==name?.toLowerCase())); setSelected(null); }}/>}
       {pendingPopup&&<PendingWorksPopup clientName={pendingPopup} works={allWorks} onClose={()=>setPendingPopup(null)}/>}
     </PageWrapper>
   );

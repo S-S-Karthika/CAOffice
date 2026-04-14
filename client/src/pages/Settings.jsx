@@ -208,32 +208,61 @@ export default function Settings() {
             {users.length===0 ? (
               <div style={{ textAlign:"center",color:"var(--text4)",padding:"24px 0",fontSize:13 }}>No users found</div>
             ) : (
-              <div style={{ border:"1px solid var(--border)",borderRadius:"var(--r-md)",overflow:"hidden" }}>
-                <div style={{ display:"grid",gridTemplateColumns:"36px 1fr 80px 100px 80px",background:"var(--surface2)",padding:"9px 14px",borderBottom:"1px solid var(--border)" }}>
-                  {["#","Name","Role","Created","Actions"].map(h=><div key={h} style={{ fontSize:10,fontWeight:700,color:"var(--text4)",textTransform:"uppercase",letterSpacing:".07em" }}>{h}</div>)}
-                </div>
-                {users.map((u,idx)=>{
-                  const isSelf=u.name===user.name;
-                  const isDeleting=deletingId===u.id;
-                  const created=u.created_at?new Date(u.created_at).toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"2-digit"}):"—";
-                  return (
-                    <div key={u.id} style={{ display:"grid",gridTemplateColumns:"36px 1fr 80px 100px 80px",padding:"11px 14px",borderBottom:idx<users.length-1?"1px solid var(--border)":"none",alignItems:"center",background:isSelf?"var(--surface2)":"var(--surface)" }}>
-                      <div style={{ fontSize:12,color:"var(--text4)",fontWeight:600 }}>{idx+1}</div>
-                      <div style={{ display:"flex",alignItems:"center",gap:9 }}>
-                        <Avatar name={u.name} size={28}/>
-                        <div>
-                          <div style={{ fontSize:13,fontWeight:600,color:"var(--text)" }}>{u.name}{isSelf&&<span style={{ marginLeft:6,fontSize:10,color:"var(--blue)",fontWeight:700 }}>You</span>}</div>
+              /* Scrollable wrapper — on mobile swipe left to see Reset/Delete */
+              <div style={{ border:"1px solid var(--border)",borderRadius:"var(--r-md)",overflowX:"auto",WebkitOverflowScrolling:"touch" }}>
+                <div style={{ minWidth:520 }}>
+                  {/* Header row */}
+                  <div style={{ display:"grid",gridTemplateColumns:"36px 1fr 80px 100px 96px",background:"var(--surface2)",padding:"9px 14px",borderBottom:"1px solid var(--border)" }}>
+                    {["#","Name","Role","Created","Actions"].map(h=>(
+                      <div key={h} style={{ fontSize:10,fontWeight:700,color:"var(--text4)",textTransform:"uppercase",letterSpacing:".07em",whiteSpace:"nowrap" }}>{h}</div>
+                    ))}
+                  </div>
+                  {/* Data rows */}
+                  {users.map((u,idx)=>{
+                    const isSelf=u.name===user.name;
+                    const isDeleting=deletingId===u.id;
+                    const created=u.created_at?new Date(u.created_at).toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"2-digit"}):"—";
+                    return (
+                      <div key={u.id} style={{ display:"grid",gridTemplateColumns:"36px 1fr 80px 100px 96px",padding:"11px 14px",borderBottom:idx<users.length-1?"1px solid var(--border)":"none",alignItems:"center",background:isSelf?"var(--surface2)":"var(--surface)",minWidth:520 }}>
+                        <div style={{ fontSize:12,color:"var(--text4)",fontWeight:600 }}>{idx+1}</div>
+                        <div style={{ display:"flex",alignItems:"center",gap:9,minWidth:0 }}>
+                          <Avatar name={u.name} size={28}/>
+                          <div style={{ minWidth:0 }}>
+                            <div style={{ fontSize:13,fontWeight:600,color:"var(--text)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>
+                              {u.name}
+                              {isSelf&&<span style={{ marginLeft:6,fontSize:10,color:"var(--blue)",fontWeight:700 }}>You</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div><RoleBadge role={u.role}/></div>
+                        <div style={{ fontSize:12,color:"var(--text3)",whiteSpace:"nowrap" }}>{created}</div>
+                        <div style={{ display:"flex",gap:5,flexShrink:0 }}>
+                          <button
+                            onClick={()=>setResetPwUser(u)}
+                            title="Reset password"
+                            style={{ padding:"6px 8px",borderRadius:6,border:"1px solid var(--border)",background:"var(--purple-l)",cursor:"pointer",display:"flex",alignItems:"center",gap:4,color:"var(--purple)",fontSize:11,fontWeight:600,fontFamily:"var(--font)",whiteSpace:"nowrap" }}>
+                            <IC d={ICONS.key} size={13} stroke="var(--purple)"/>
+                            <span style={{ display:"inline" }}>Reset</span>
+                          </button>
+                          {!isSelf&&(
+                            <button
+                              onClick={()=>deleteUser(u.id,u.name)}
+                              disabled={isDeleting}
+                              title="Delete user"
+                              style={{ padding:"6px 8px",borderRadius:6,border:"1px solid #FECACA",background:"var(--red-m)",cursor:"pointer",display:"flex",alignItems:"center",gap:4,color:"var(--red)",fontSize:11,fontWeight:600,fontFamily:"var(--font)",opacity:isDeleting?.5:1,whiteSpace:"nowrap" }}>
+                              <IC d={ICONS.trash} size={13} stroke="var(--red)"/>
+                              <span style={{ display:"inline" }}>Delete</span>
+                            </button>
+                          )}
                         </div>
                       </div>
-                      <div><RoleBadge role={u.role}/></div>
-                      <div style={{ fontSize:12,color:"var(--text3)" }}>{created}</div>
-                      <div style={{ display:"flex",gap:5 }}>
-                        <button onClick={()=>setResetPwUser(u)} title="Reset password" style={{ padding:"5px 7px",borderRadius:6,border:"1px solid var(--border)",background:"var(--surface2)",cursor:"pointer",display:"flex",color:"var(--purple)" }}><IC d={ICONS.key} size={13} stroke="var(--purple)"/></button>
-                        {!isSelf&&<button onClick={()=>deleteUser(u.id,u.name)} disabled={isDeleting} title="Delete" style={{ padding:"5px 7px",borderRadius:6,border:"1px solid #FECACA",background:"var(--red-m)",cursor:"pointer",display:"flex",color:"var(--red)",opacity:isDeleting?.5:1 }}><IC d={ICONS.trash} size={13} stroke="var(--red)"/></button>}
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+                {/* Scroll hint on mobile */}
+                <div style={{ padding:"6px 14px 8px",background:"var(--surface2)",borderTop:"1px solid var(--border)",fontSize:10,color:"var(--text4)",textAlign:"right" }} className="ca-hide-desktop-hint">
+                  ← swipe to see all columns
+                </div>
               </div>
             )}
             <div style={{ marginTop:14,display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
