@@ -317,10 +317,18 @@ export default function Clients() {
 
   const fetchAll = () => {
     setLoading(true);
-    Promise.all([axios.get(`${API}/works`),axios.get(`${API}/api/users`).catch(()=>({data:[]}))])
+    const myName = (user.name||"").trim().toLowerCase();
+    const worksUrl = isCA
+      ? `${API}/works`
+      : `${API}/works?assignedTo=${encodeURIComponent(user.name)}`;
+    Promise.all([axios.get(worksUrl), axios.get(`${API}/api/users`).catch(()=>({data:[]}))])
       .then(([worksRes,userRes])=>{
         const allW=worksRes.data||[];
-        setAllWorks(isCA?allW:allW.filter(w=>w.assignedTo===user.name));
+        // Case-insensitive client-side filter
+        const visible = isCA
+          ? allW
+          : allW.filter(w => (w.assignedTo||"").trim().toLowerCase() === myName);
+        setAllWorks(visible);
         const users=userRes.data||[];
         setStaffList(users.filter(u=>u.role==="Staff").map(u=>u.name));
         setCaList(users.filter(u=>u.role==="CA").map(u=>u.name));

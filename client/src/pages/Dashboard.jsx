@@ -392,11 +392,20 @@ export default function Dashboard() {
   const user = (() => { try { return JSON.parse(localStorage.getItem("cao_user")||'{"name":"Guest","role":"Staff"}'); } catch { return {name:"Guest",role:"Staff"}; } })();
   const isCA = user.role === "CA";
 
-  function filterByRole(all) { return isCA ? all : all.filter(w => w.assignedTo===user.name); }
+  // Case-insensitive client-side fallback filter
+  function filterByRole(all) {
+    if (isCA) return all;
+    const myName = (user.name||"").trim().toLowerCase();
+    return all.filter(w => (w.assignedTo||"").trim().toLowerCase() === myName);
+  }
 
   function loadData() {
     setLoading(true);
-    Promise.all([axios.get(`${API}/works`), axios.get(`${API}/attendance/all`)])
+    // Pass assignedTo param so backend also filters — defence in depth
+    const worksUrl = isCA
+      ? `${API}/works`
+      : `${API}/works?assignedTo=${encodeURIComponent(user.name)}`;
+    Promise.all([axios.get(worksUrl), axios.get(`${API}/attendance/all`)])
       .then(([w,a]) => { setWorks(filterByRole(w.data||[])); setAttendance(a.data||[]); })
       .catch(console.error).finally(() => setLoading(false));
   }
